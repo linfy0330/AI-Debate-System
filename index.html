@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園手機政策討論系統</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- 引入加密套件與 Gemini SDK (可用 fetch 代替，但此處引入備用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1 id="title">Smart Education System</h1>
+            <div id="group-indicator"></div>
+        </header>
+
+        <main id="chat-container">
+            <!-- 對話內容會顯示在這裡 -->
+        </main>
+
+        <footer id="input-area">
+            <input type="text" id="user-input" placeholder="請輸入你的看法..." disabled>
+            <button id="send-btn" disabled>傳送</button>
+            <button id="download-btn">結束並下載紀錄</button>
+        </footer>
+    </div>
+
+    <!-- 檔案串接 -->
+    <script src="prompts.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
