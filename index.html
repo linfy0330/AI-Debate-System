@@ -11,13 +11,35 @@
 <body>
     <div id="app">
         <header>
-            <h1 id="title">Smart Education System</h1>
+            <h1 id="title">校園手機政策議事廳</h1>
             <div id="group-indicator"></div>
         </header>
 
+        <div id="welcome-overlay" class="overlay">
+            <div class="overlay-content">
+                <h2>歡迎來到數位議事廳！</h2>
+                <p>今天我們要討論：<strong>「校園是否應該全面禁止使用手機？」</strong></p>
+                <p>在開始與 AI 討論之前，請先選擇一個最接近你目前想法的立場：</p>
+                
+                <div class="stance-options">
+                    <button class="stance-btn" data-stance="ban">
+                        <strong>完全禁止</strong><br>
+                        <span class="speech-text">我覺得不應該帶手機到學校，學校就是學習的地方。</span>
+                    </button>
+                    <button class="stance-btn" data-stance="conditional">
+                        <strong>有限度開放</strong><br>
+                        <span class="speech-text">我覺得可以帶，但只有在特殊情況，例如緊急時才可以使用。</span>
+                    </button>
+                    <button class="stance-btn" data-stance="free">
+                        <strong>完全自主</strong><br>
+                        <span class="speech-text">我覺得應該讓學生練習自己管理手機，這也是一種學習。</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <main id="chat-container">
-            <!-- 對話內容會顯示在這裡 -->
-        </main>
+            </main>
 
         <footer id="input-area">
             <input type="text" id="user-input" placeholder="請輸入你的看法..." disabled>
