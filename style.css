@@ -17,3 +17,81 @@ header { background: #2c3e50; color: white; padding: 1rem; text-align: center; }
 button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; }
 #send-btn { background: #2196f3; color: white; }
 #download-btn { background: #ff9800; color: white; }
+/* 標題下方的裝飾色塊 */
+#group-indicator {
+    height: 4px;             /* 設定色塊的高度 */
+    width: 60px;             /* 設定色塊的寬度 */
+    margin: 8px auto 0;      /* 置中並與標題保持間距 */
+    border-radius: 2px;      /* 稍微圓角化 */
+    transition: background 0.3s; /* 變色時平滑一點 */
+}
+
+/* 實驗組 (E) 的色塊顏色：深藍色（代表理性的議事廳） */
+.group-e-style {
+    background-color: #3498db;
+}
+
+/* 控制組 (C) 的色塊顏色：中性灰（代表鏡像對照） */
+.group-c-style {
+    background-color: #bdc3c7;
+}
+/* style.css 新增部分 */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: none; /* 初始隱藏，密碼正確後顯示 */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.overlay-content {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%; /* 行動裝置適配 */
+    max-width: 500px; /* 電腦版不會太寬 */
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); /* 增加陰影讓它浮在背景上 */
+}
+
+.stance-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/* 建議微調的 stance-btn 樣式 */
+.stance-btn {
+    padding: 18px; /* 稍微加大一點，適合觸控或點擊 */
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out; /* 讓縮放與變色更平滑 */
+    text-align: center; /* 左對齊通常比置中更易閱讀長句子 */
+}
+
+.stance-btn:hover {
+    transform: translateY(-3px); /* 懸停時輕微浮起，增加互動感 */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stance-btn strong {
+    display: block;
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.stance-btn span {
+    font-size: 0.95rem;
+    color: #666;
+    line-height: 1.4;
+}
+
+/* 對應三方立場的顏色 */
+.stance-btn[data-stance="ban"]:hover { border-color: #d32f2f; background: #ffebee; }
+.stance-btn[data-stance="conditional"]:hover { border-color: #fbc02d; background: #fffde7; }
+.stance-btn[data-stance="free"]:hover { border-color: #388e3c; background: #e8f5e9; }
