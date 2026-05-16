@@ -53,7 +53,7 @@ function setupStanceButtons() {
             document.getElementById('send-btn').disabled = false;
 
             // 2. 顯示學生的「我覺得...」
-            addMessage('student', `你：${studentThought}`);
+            addMessage('student', `${studentThought}`);
             
             // 3. 標記為初始立場，這對於分析 RQ4（立場修正幅度）至關重要 [cite: 34, 60]
             chatLog.push({ role: 'Student_Initial_Stance', content: studentThought });
@@ -64,6 +64,14 @@ function setupStanceButtons() {
     });
 }
 
+// --- 角色名稱與頭像對照表 ---
+const roleInfo = {
+    'agent-order': { name: '小明', avatar: '🧑‍🏫' },
+    'agent-guardian': { name: '小花', avatar: '🌻' },
+    'agent-liberty': { name: '阿傑', avatar: '🎸' },
+    'agent-mirror': { name: '反思小助手', avatar: '🤖' }
+};
+
 // --- 4. 核心：處理 AI 回應的邏輯 (由按鈕或傳送鍵觸發) ---
 async function handleAIResponse(input) {
     // 禁用輸入，避免 AI 回傳時學生重複傳送
@@ -72,7 +80,8 @@ async function handleAIResponse(input) {
 
     if (group === 'E') {
         const roles = ['Order', 'Guardian', 'Liberty'];
-        const loadingDivs = roles.map(r => addMessage(`agent-${r.toLowerCase()}`, `[${r}] 思考中...`));
+        // 產生帶有頭像的「思考中...」泡泡 (過濾掉原本的 [Order] 等標籤)
+        const loadingDivs = roles.map(r => addMessage(`agent-${r.toLowerCase()}`, `思考中...`));
 
         const replies = await Promise.all(roles.map(r => 
             callGemini(r, agentPrompts[r.toLowerCase()], input)
@@ -80,15 +89,33 @@ async function handleAIResponse(input) {
 
         replies.forEach((fullReply, i) => {
             const displayText = fullReply.split('{')[0].split('```')[0].trim();
-            loadingDivs[i].innerText = `[${roles[i]}] ${displayText}`;
+            // 過濾掉回傳文字開頭可能自帶的 [Order], [Guardian] 等標籤
+            const cleanText = displayText.replace(/^\[.*?\]\s*/, '');
+            
+            // 🏆 關鍵修改：只更新文字區塊，不要覆蓋到頭像
+            const contentBox = loadingDivs[i].querySelector('.msg-content');
+            if (contentBox) {
+                contentBox.innerText = cleanText;
+            } else {
+                loadingDivs[i].innerText = cleanText;
+            }
+            
             chatLog.push({ role: roles[i], content: fullReply });
         });
     } else {
-        const loadingDiv = addMessage('agent-mirror', "[AI] 思考中...");
+        // 控制組 (C組) 的邏輯也一併修正
+        const loadingDiv = addMessage('agent-mirror', "思考中...");
         const fullReply = await callGemini('Control', agentPrompts.mirror, input);
         const displayText = fullReply.split('{')[0].split('```')[0].trim();
+        const cleanText = displayText.replace(/^\[.*?\]\s*/, '');
         
-        loadingDiv.innerText = `[AI助手] ${displayText}`;
+        const contentBox = loadingDiv.querySelector('.msg-content');
+        if (contentBox) {
+            contentBox.innerText = cleanText;
+        } else {
+            loadingDiv.innerText = cleanText;
+        }
+        
         chatLog.push({ role: 'Control', content: fullReply });
     }
 
@@ -104,7 +131,7 @@ document.getElementById('send-btn').onclick = async () => {
     if(!input) return;
     
     document.getElementById('user-input').value = '';
-    addMessage('student', `你：${input}`);
+    addMessage('student', `${input}`);
     chatLog.push({ role: 'Student', content: input });
 
     // 呼叫統一的回應邏輯
@@ -117,12 +144,25 @@ async function callGemini(role, systemPrompt, userInput, retryCount = 0) {
     const apiKey = pool.keys[pool.idx];
     pool.idx = (pool.idx + 1) % pool.keys.length;
 
+    // 🏆 新增：抓取最近的 6 筆對話紀錄，作為上下文記憶
+    // 使用 split('{')[0] 是為了過濾掉之前 AI 回傳的 JSON 紀錄，只保留純對話
+    const recentHistory = chatLog.slice(-6).map(m => {
+        let cleanText = m.content.split('{')[0].replace(/^\[.*?\]\s*/, '').trim();
+        return `[${m.role}] 說: ${cleanText}`;
+    }).join('\n');
+
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: `Instruction: ${systemPrompt}\nStudent: ${userInput}` }] }],
+                contents: [{ 
+                    role: "user", 
+                    parts: [{ 
+                        // 將上下文紀錄與學生的輸入一起包裝給 AI
+                        text: `Instruction: ${systemPrompt}\n\n[最近的對話紀錄 (供你參考上下文)]\n${recentHistory}\n\n請根據上述歷史紀錄，以上述設定的角色做出回應：` 
+                    }] 
+                }],
                 safetySettings: [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }],
                 generationConfig: { temperature: 0.8, maxOutputTokens: 1000 }
             })
@@ -143,7 +183,25 @@ async function callGemini(role, systemPrompt, userInput, retryCount = 0) {
 function addMessage(type, text) {
     const div = document.createElement('div');
     div.className = `msg ${type}`;
-    div.innerText = text;
+    
+    // 過濾文字開頭的標籤
+    const cleanText = text.replace(/^\[.*?\]\s*/, '');
+
+    if (type === 'student') {
+        // 學生 (我方) 不需要頭像
+        div.innerHTML = `<div class="msg-content">${cleanText}</div>`;
+    } else {
+        // AI 需要加上頭像與名稱
+        const info = roleInfo[type] || { name: '系統', avatar: '💻' };
+        div.innerHTML = `
+            <div class="msg-header">
+                <span class="avatar">${info.avatar}</span>
+                <span class="name">${info.name}</span>
+            </div>
+            <div class="msg-content">${cleanText}</div>
+        `;
+    }
+
     const container = document.getElementById('chat-container');
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -151,10 +209,18 @@ function addMessage(type, text) {
 }
 
 document.getElementById('download-btn').onclick = () => {
+    // 1. 執行原本的下載紀錄邏輯
     const content = chatLog.map(m => `[${m.role}]\n${m.content}`).join('\n\n---\n\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `Log_${group}_${new Date().getTime()}.txt`;
     a.click();
+
+    // 2. 新增：設定延遲並跳轉到表單網址
+    // 使用 setTimeout 延遲 1.5 秒 (1500毫秒)，確保檔案開始下載後才切換網頁
+    setTimeout(() => {
+        // ⚠️ 請將下方的引號內的網址，替換成你實際的 Google 表單問卷網址
+        window.location.href = "網址"; 
+    }, 1500);
 };
