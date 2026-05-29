@@ -25,10 +25,8 @@ window.onload = function() {
         const indicator = document.getElementById('group-indicator');
 
         if (group === 'E') {
-            // 實驗組：套用藍色色塊，不顯示文字
             indicator.classList.add('group-e-style');
         } else {
-            // 控制組：套用灰色色塊，不顯示文字
             indicator.classList.add('group-c-style');
         }
 
@@ -40,11 +38,11 @@ window.onload = function() {
     }
 };
 
-// --- 3. 新增：立場按鈕處理邏輯 ---
+// --- 3. 立場按鈕處理邏輯 ---
 function setupStanceButtons() {
-    document.querySelectorAll('.stance-btn').forEach(btn => {
+    document.querySelectorAll('#welcome-overlay .stance-btn').forEach(btn => {
         btn.onclick = async () => {
-            // 抓取按鈕內 <span class="speech-text"> 的文字內容
+            // 抓取按鈕內 <span> 的文字內容
             const studentThought = btn.querySelector('.speech-text').innerText.trim();
             
             // 1. 隱藏遮罩並啟用介面
@@ -53,9 +51,9 @@ function setupStanceButtons() {
             document.getElementById('send-btn').disabled = false;
 
             // 2. 顯示學生的「我覺得...」
-            addMessage('student', `${studentThought}`);
-            
-            // 3. 標記為初始立場，這對於分析 RQ4（立場修正幅度）至關重要 [cite: 34, 60]
+            addMessage('student', `你：${studentThought}`);
+
+            // 3. 標記為初始立場
             chatLog.push({ role: 'Student_Initial_Stance', content: studentThought });
 
             // 4. 將這句「我覺得...」直接傳送給 AI 觸發對話
@@ -74,13 +72,11 @@ const roleInfo = {
 
 // --- 4. 核心：處理 AI 回應的邏輯 (由按鈕或傳送鍵觸發) ---
 async function handleAIResponse(input) {
-    // 禁用輸入，避免 AI 回傳時學生重複傳送
     document.getElementById('user-input').disabled = true;
     document.getElementById('send-btn').disabled = true;
 
     if (group === 'E') {
         const roles = ['Order', 'Guardian', 'Liberty'];
-        // 產生帶有頭像的「思考中...」泡泡 (過濾掉原本的 [Order] 等標籤)
         const loadingDivs = roles.map(r => addMessage(`agent-${r.toLowerCase()}`, `思考中...`));
 
         const replies = await Promise.all(roles.map(r => 
@@ -89,10 +85,8 @@ async function handleAIResponse(input) {
 
         replies.forEach((fullReply, i) => {
             const displayText = fullReply.split('{')[0].split('```')[0].trim();
-            // 過濾掉回傳文字開頭可能自帶的 [Order], [Guardian] 等標籤
             const cleanText = displayText.replace(/^\[.*?\]\s*/, '');
             
-            // 🏆 關鍵修改：只更新文字區塊，不要覆蓋到頭像
             const contentBox = loadingDivs[i].querySelector('.msg-content');
             if (contentBox) {
                 contentBox.innerText = cleanText;
@@ -103,7 +97,6 @@ async function handleAIResponse(input) {
             chatLog.push({ role: roles[i], content: fullReply });
         });
     } else {
-        // 控制組 (C組) 的邏輯也一併修正
         const loadingDiv = addMessage('agent-mirror', "思考中...");
         const fullReply = await callGemini('Control', agentPrompts.mirror, input);
         const displayText = fullReply.split('{')[0].split('```')[0].trim();
@@ -179,19 +172,16 @@ async function callGemini(role, systemPrompt, userInput, retryCount = 0) {
     }
 }
 
-// --- 7. 輔助功能 (保持原樣) ---
+// --- 7. 輔助功能 ---
 function addMessage(type, text) {
     const div = document.createElement('div');
     div.className = `msg ${type}`;
-    
-    // 過濾文字開頭的標籤
+
     const cleanText = text.replace(/^\[.*?\]\s*/, '');
 
     if (type === 'student') {
-        // 學生 (我方) 不需要頭像
         div.innerHTML = `<div class="msg-content">${cleanText}</div>`;
     } else {
-        // AI 需要加上頭像與名稱
         const info = roleInfo[type] || { name: '系統', avatar: '💻' };
         div.innerHTML = `
             <div class="msg-header">
@@ -208,19 +198,39 @@ function addMessage(type, text) {
     return div;
 }
 
+// --- 8. 結束與下載紀錄邏輯 ---
 document.getElementById('download-btn').onclick = () => {
-    // 1. 執行原本的下載紀錄邏輯
-    const content = chatLog.map(m => `[${m.role}]\n${m.content}`).join('\n\n---\n\n');
-    const blob = new Blob([content], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `Log_${group}_${new Date().getTime()}.txt`;
-    a.click();
-
-    // 2. 新增：設定延遲並跳轉到表單網址
-    // 使用 setTimeout 延遲 1.5 秒 (1500毫秒)，確保檔案開始下載後才切換網頁
-    setTimeout(() => {
-        // ⚠️ 請將下方的引號內的網址，替換成你實際的 Google 表單問卷網址
-        window.location.href = "網址"; 
-    }, 1500);
+    document.getElementById('user-input').disabled = true;
+    document.getElementById('send-btn').disabled = true;
+    document.getElementById('final-stance-overlay').style.display = 'flex';
 };
+
+// 處理學生點擊「最終立場」按鈕的事件
+document.querySelectorAll('#final-stance-overlay .final-btn').forEach(btn => {
+    btn.onclick = () => {
+        // 1. 抓取最終想法 (單純記錄)
+        const finalThought = btn.querySelector('.speech-text').innerText.trim();
+        
+        // 2. 隱藏最終遮罩
+        document.getElementById('final-stance-overlay').style.display = 'none';
+        
+        // 3. 記錄到 chatLog
+        chatLog.push({ role: 'Student_Final_Stance', content: finalThought });
+        
+        // 4. 準備文字檔內容並觸發下載
+        const content = chatLog.map(m => `[${m.role}]\n${m.content}`).join('\n\n---\n\n');
+        const blob = new Blob([content], { type: 'text/plain' });
+        
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Log_${group}_${new Date().getTime()}.txt`;
+        document.body.appendChild(a); // 把 a 標籤加到畫面上 (防止某些瀏覽器阻擋下載)
+        a.click();
+        document.body.removeChild(a); // 點擊完移除
+        
+        // 5. 延遲 1.5 秒後跳轉到問卷表單
+        setTimeout(() => {
+            window.location.href = "https://forms.gle/你的表單網址"; 
+        }, 1500);
+    };
+});
