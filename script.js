@@ -51,7 +51,7 @@ function setupStanceButtons() {
             document.getElementById('send-btn').disabled = false;
 
             // 2. 顯示學生的「我覺得...」
-            addMessage('student', `你：${studentThought}`);
+            addMessage('student', `${studentThought}`);
 
             // 3. 標記為初始立場
             chatLog.push({ role: 'Student_Initial_Stance', content: studentThought });
