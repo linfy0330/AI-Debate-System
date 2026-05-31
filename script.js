@@ -230,7 +230,7 @@ document.querySelectorAll('#final-stance-overlay .final-btn').forEach(btn => {
         
         // 5. 延遲 1.5 秒後跳轉到問卷表單
         setTimeout(() => {
-            window.location.href = "https://forms.gle/你的表單網址"; 
+            window.location.href = "https://forms.gle/XotheQyR3Y18JCJW8"; 
         }, 1500);
     };
 });
