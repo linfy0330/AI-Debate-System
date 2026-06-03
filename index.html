@@ -6,7 +6,6 @@
     <title>校園手機政策討論系統</title>
     <link rel="icon" href="favicon.png" type="image/png">
     <link rel="stylesheet" href="style.css">
-    <!-- 引入加密套件與 Gemini SDK (可用 fetch 代替，但此處引入備用) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
@@ -23,56 +22,81 @@
                 <p>在開始與 AI 討論之前，請先選擇一個最接近你目前想法的立場：</p>
                 
                 <div class="stance-options">
-                    <button class="stance-btn" data-stance="ban">
-                        <strong>完全禁止</strong><br>
-                        <span class="speech-text">我覺得不應該帶手機到學校，學校就是學習的地方。</span>
-                    </button>
-                    <button class="stance-btn" data-stance="conditional">
-                        <strong>有限度開放</strong><br>
-                        <span class="speech-text">我覺得可以帶，但只有在特殊情況，例如緊急時才可以使用。</span>
-                    </button>
-                    <button class="stance-btn" data-stance="free">
-                        <strong>完全自主</strong><br>
-                        <span class="speech-text">我覺得應該讓學生練習自己管理手機，這也是一種學習。</span>
-                    </button>
+                    <div class="slider-group">
+                        <label for="initial-stance"><strong>1. 你的立場傾向：</strong></label>
+                        <div class="slider-labels">
+                            <span class="label-left">強烈支持<br>完全自主 (-3)</span>
+                            <span class="label-center">中立 /<br>有限度開放 (0)</span>
+                            <span class="label-right">強烈支持<br>完全禁止 (+3)</span>
+                        </div>
+                        <input type="range" id="initial-stance" min="-3" max="3" value="0" step="1">
+                        <div class="current-value">
+                            目前選擇：<span id="initial-stance-text" class="highlight-text">中立 / 有限度開放 (0)</span>
+                        </div>
+                    </div>
+
+                    <div class="slider-group">
+                        <label for="initial-confidence"><strong>2. 你對這個選擇的肯定程度：</strong></label>
+                        <div class="slider-labels">
+                            <span class="label-left">10%<br>(極度沒把握)</span> <span class="label-right">100%<br>(毫無疑問)</span>
+                        </div>
+                        <input type="range" id="initial-confidence" min="10" max="100" value="50" step="10">
+                        <div class="current-value">
+                            目前信心度：<span id="initial-conf-text" class="highlight-text">50%</span>
+                        </div>
+                    </div>
+
+                    <button id="start-chat-btn" class="submit-stance-btn">確認立場，進入議事廳！</button>
                 </div>
             </div>
         </div>
 
         <div id="final-stance-overlay" class="overlay" style="display: none;">
             <div class="overlay-content">
+                <span id="close-final-overlay" class="close-btn">&times;</span>
                 <h2>討論結束！請做出你的最終裁決</h2>
                 <p>經過剛剛與 AI 的討論，關於<strong>「校園是否應該全面禁止使用手機？」</strong></p>
                 <p>你現在最終的想法是什麼呢？</p>
                 
                 <div class="stance-options">
-                    <button class="stance-btn final-btn" data-stance="ban">
-                        <strong>完全禁止</strong><br>
-                        <span class="speech-text">我最後決定：不應該帶手機到學校，學校就是學習的地方。</span>
-                    </button>
-                    <button class="stance-btn final-btn" data-stance="conditional">
-                        <strong>有限度開放</strong><br>
-                        <span class="speech-text">我最後決定：可以帶，但只有在特殊情況才能使用。</span>
-                    </button>
-                    <button class="stance-btn final-btn" data-stance="free">
-                        <strong>完全自主</strong><br>
-                        <span class="speech-text">我最後決定：應該讓學生練習自己管理手機。</span>
-                    </button>
+                    <div class="slider-group">
+                        <label for="final-stance"><strong>1. 你的最終立場傾向：</strong></label>
+                        <div class="slider-labels">
+                            <span class="label-left">強烈支持<br>完全自主 (-3)</span>
+                            <span class="label-center">中立 /<br>有限度開放 (0)</span>
+                            <span class="label-right">強烈支持<br>完全禁止 (+3)</span>
+                        </div>
+                        <input type="range" id="final-stance" min="-3" max="3" value="0" step="1">
+                        <div class="current-value">
+                            目前選擇：<span id="final-stance-text" class="highlight-text">中立 / 有限度開放 (0)</span>
+                        </div>
+                    </div>
+
+                    <div class="slider-group">
+                        <label for="final-confidence"><strong>2. 你對這個最終選擇的肯定程度：</strong></label>
+                        <div class="slider-labels">
+                            <span class="label-left">10%<br>(極度沒把握)</span> <span class="label-right">100%<br>(毫無疑問)</span>
+                        </div>
+                        <input type="range" id="final-confidence" min="10" max="100" value="50" step="10">
+                        <div class="current-value">
+                            目前信心度：<span id="final-conf-text" class="highlight-text">50%</span>
+                        </div>
+                    </div>
+
+                    <button id="submit-final-btn" class="submit-stance-btn">確認並下載紀錄</button>
                 </div>
             </div>
         </div>
 
-        <main id="chat-container">
-            </main>
+        <main id="chat-container"></main>
 
         <footer id="input-area">
             <input type="text" id="user-input" placeholder="請輸入你的看法..." disabled>
             <button id="send-btn" disabled>傳送</button>
-            <button id="download-btn">結束並下載紀錄</button>
+            <button id="download-btn" disabled>結束並下載紀錄</button>
         </footer>
     </div>
 
-    <!-- 檔案串接 -->
     <script src="prompts.js"></script>
     <script src="script.js"></script>
 </body>
