@@ -3,6 +3,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const group = urlParams.get('group') || 'E'; // E=實驗組, C=控制組
 let keyPool = {};
 let chatLog = [];
+let currentRound = 0;
 
 // --- 2. 密碼解密邏輯 ---
 window.onload = function() {
@@ -30,7 +31,7 @@ window.onload = function() {
             indicator.classList.add('group-c-style');
         }
 
-        setupStanceButtons();
+        setupStanceSliders();
 
     } catch (e) {
         alert("授權失敗！密碼錯誤或格式不正確。");
@@ -39,27 +40,58 @@ window.onload = function() {
 };
 
 // --- 3. 立場按鈕處理邏輯 ---
-function setupStanceButtons() {
-    document.querySelectorAll('#welcome-overlay .stance-btn').forEach(btn => {
-        btn.onclick = async () => {
-            // 抓取按鈕內 <span> 的文字內容
-            const studentThought = btn.querySelector('.speech-text').innerText.trim();
+const stanceMap = {
+    "-3": "強烈支持完全自主",
+    "-2": "支持完全自主",
+    "-1": "稍微偏向完全自主",
+    "0": "中立 / 有限度開放",
+    "1": "稍微偏向完全禁止",
+    "2": "支持完全禁止",
+    "3": "強烈支持完全禁止"
+};
+
+function setupStanceSliders() {
+    const initialStanceSlider = document.getElementById('initial-stance');
+    const initialStanceText = document.getElementById('initial-stance-text');
+    const initialConfSlider = document.getElementById('initial-confidence');
+    const initialConfText = document.getElementById('initial-conf-text');
+
+    // 動態更新文字
+    if (initialStanceSlider) {
+        initialStanceSlider.addEventListener('input', (e) => {
+            initialStanceText.innerText = `${stanceMap[e.target.value]} (${e.target.value})`;
+        });
+    }
+
+    if (initialConfSlider) {
+        initialConfSlider.addEventListener('input', (e) => {
+            initialConfText.innerText = `${e.target.value}%`;
+        });
+    }
+
+    // 開始討論按鈕
+    const startBtn = document.getElementById('start-chat-btn');
+    if (startBtn) {
+        startBtn.onclick = async () => {
+            const stanceVal = initialStanceSlider.value;
+            const confVal = initialConfSlider.value;
+            const studentThought = `我的初始立場是：【${stanceMap[stanceVal]}】(傾向分數：${stanceVal})，我的信心程度是 ${confVal}%。`;
             
             // 1. 隱藏遮罩並啟用介面
             document.getElementById('welcome-overlay').style.display = 'none';
             document.getElementById('user-input').disabled = false;
             document.getElementById('send-btn').disabled = false;
 
-            // 2. 顯示學生的「我覺得...」
+            // 2. 顯示學生的初始狀態
             addMessage('student', `${studentThought}`);
 
             // 3. 標記為初始立場
-            chatLog.push({ role: 'Student_Initial_Stance', content: studentThought });
+            chatLog.push({ role: 'Student_Initial_Stance', content: studentThought, stance: stanceVal, confidence: confVal });
 
-            // 4. 將這句「我覺得...」直接傳送給 AI 觸發對話
+            // 4. 將這句話傳送給 AI 觸發第一輪對話
             handleAIResponse(studentThought);
         };
-    });
+    }
 }
 
 // --- 角色名稱與頭像對照表 ---
@@ -79,12 +111,16 @@ async function handleAIResponse(input) {
         const roles = ['Order', 'Guardian', 'Liberty'];
         const loadingDivs = roles.map(r => addMessage(`agent-${r.toLowerCase()}`, `思考中...`));
 
-        const replies = await Promise.all(roles.map(r => 
-            callGemini(r, agentPrompts[r.toLowerCase()], input)
-        ));
+        // 🌟 防超額限制：加入亂數與順序延遲 (錯開 API 請求)
+        const replies = await Promise.all(roles.map(async (r, index) => {
+            const delay = Math.floor(Math.random() * 1000) + (index * 800); // 依序延遲
+            await new Promise(res => setTimeout(res, delay));
+            return callGemini(r, agentPrompts[r.toLowerCase()], input);
+        }));
 
         replies.forEach((fullReply, i) => {
             const displayText = fullReply.split('{')[0].split('```')[0].trim();
+            // ... (其餘原本邏輯保持不變)
             const cleanText = displayText.replace(/^\[.*?\]\s*/, '');
             
             const contentBox = loadingDivs[i].querySelector('.msg-content');
@@ -122,7 +158,15 @@ async function handleAIResponse(input) {
 document.getElementById('send-btn').onclick = async () => {
     const input = document.getElementById('user-input').value.trim();
     if(!input) return;
-    
+
+    currentRound++; // 🌟 學生成功送出訊息，對話輪數 +1
+    console.log(`目前進入第 ${currentRound} 輪對話`); 
+
+    // 🌟 新增：不顯示提示，默默檢查是否滿 10 輪，滿了就解鎖「結束」按鈕
+    if (currentRound >= 10) {
+        document.getElementById('download-btn').disabled = false;
+    }
+
     document.getElementById('user-input').value = '';
     addMessage('student', `${input}`);
     chatLog.push({ role: 'Student', content: input });
@@ -131,18 +175,31 @@ document.getElementById('send-btn').onclick = async () => {
     handleAIResponse(input);
 };
 
-// --- 6. 呼叫 Gemini 3 Flash API (保持原樣) ---
+// --- 6. 呼叫 Gemini 3 Flash API ---
 async function callGemini(role, systemPrompt, userInput, retryCount = 0) {
     const pool = (group === 'E') ? keyPool[role] : keyPool['Control'];
     const apiKey = pool.keys[pool.idx];
     pool.idx = (pool.idx + 1) % pool.keys.length;
 
     // 🏆 新增：抓取最近的 6 筆對話紀錄，作為上下文記憶
-    // 使用 split('{')[0] 是為了過濾掉之前 AI 回傳的 JSON 紀錄，只保留純對話
     const recentHistory = chatLog.slice(-6).map(m => {
         let cleanText = m.content.split('{')[0].replace(/^\[.*?\]\s*/, '').trim();
         return `[${m.role}] 說: ${cleanText}`;
     }).join('\n');
+
+    // 🌟 新增：動態提示詞注入 (AI 主動說服與施壓機制)
+    let dynamicPrompt = systemPrompt;
+    
+    // 只有實驗組 (E) 需要發動說服，控制組 (鏡像) 維持中立不變
+    if (group === 'E' && currentRound >= 5) {
+        dynamicPrompt += `
+        
+        [隱藏動態指令：主動說服學生]
+        注意！對話已經進行了 ${currentRound} 輪，現在進入「深度說服階段」。
+        請不要再只是被動防守或單純反駁，你要開始『主動且強勢地說服學生』改變想法！
+        請運用你角色的核心特質（例如小明的權威與規定、小花的強烈擔憂、或阿傑的極端嘲諷），針對學生剛才的論點弱點進行強力的追問，或拋出一個「如果發生最壞情況怎麼辦？」的震撼性情境。
+        你的目標是：試圖讓學生產生動搖、懷疑自己的立場，並在最終裁決時倒戈加入你的陣營。請保持角色口吻，自然地加強你的攻擊力道！`;
+    }
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
@@ -152,9 +209,9 @@ async function callGemini(role, systemPrompt, userInput, retryCount = 0) {
                 contents: [{ 
                     role: "user", 
                     parts: [{ 
-                        // 將上下文紀錄與學生的輸入一起包裝給 AI
-                        text: `Instruction: ${systemPrompt}\n\n[最近的對話紀錄 (供你參考上下文)]\n${recentHistory}\n\n請根據上述歷史紀錄，以上述設定的角色做出回應：` 
-                    }] 
+                        // 🌟 這裡把原本的 systemPrompt 換成加工過的 dynamicPrompt
+                        text: `Instruction: ${dynamicPrompt}\n\n[最近的對話紀錄 (供你參考上下文)]\n${recentHistory}\n\n請根據上述歷史紀錄，以上述設定的角色做出回應：` 
+                    }]
                 }],
                 safetySettings: [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }],
                 generationConfig: { temperature: 0.8, maxOutputTokens: 1000 }
@@ -168,7 +225,9 @@ async function callGemini(role, systemPrompt, userInput, retryCount = 0) {
         if (data.error) return `[系統提示] 無法回覆：${data.error.message}`;
         return data.candidates[0].content.parts[0].text;
     } catch (error) {
-        return "[系統提示] 網路連線異常。";
+        // 🌟 防呆補強：附上假的 JSON 結構，確保前面的 .split('{')[0] 不會壞掉，
+        // 且能在後台資料中清楚識別出斷線事件。
+        return "[系統提示] 網路連線異常，請檢查網路。 {\"claim\": \"Error\", \"reason\": \"Network\", \"example\": \"N/A\", \"response\": \"Error\", \"bias_used\": false, \"conflict_level\": \"None\"}";
     }
 }
 
@@ -205,32 +264,64 @@ document.getElementById('download-btn').onclick = () => {
     document.getElementById('final-stance-overlay').style.display = 'flex';
 };
 
-// 處理學生點擊「最終立場」按鈕的事件
-document.querySelectorAll('#final-stance-overlay .final-btn').forEach(btn => {
-    btn.onclick = () => {
-        // 1. 抓取最終想法 (單純記錄)
-        const finalThought = btn.querySelector('.speech-text').innerText.trim();
+const closeFinalOverlayBtn = document.getElementById('close-final-overlay');
+if (closeFinalOverlayBtn) {
+    closeFinalOverlayBtn.onclick = () => {
+        // 隱藏遮罩
+        document.getElementById('final-stance-overlay').style.display = 'none';
+        // 重新解鎖輸入框與傳送按鈕
+        document.getElementById('user-input').disabled = false;
+        document.getElementById('send-btn').disabled = false;
+    };
+}
+
+const finalStanceSlider = document.getElementById('final-stance');
+const finalStanceText = document.getElementById('final-stance-text');
+const finalConfSlider = document.getElementById('final-confidence');
+const finalConfText = document.getElementById('final-conf-text');
+
+if (finalStanceSlider) {
+    finalStanceSlider.addEventListener('input', (e) => {
+        finalStanceText.innerText = `${stanceMap[e.target.value]} (${e.target.value})`;
+    });
+}
+if (finalConfSlider) {
+    finalConfSlider.addEventListener('input', (e) => {
+        finalConfText.innerText = `${e.target.value}%`;
+    });
+}
+
+const submitFinalBtn = document.getElementById('submit-final-btn');
+if (submitFinalBtn) {
+    submitFinalBtn.onclick = () => {
+        const finalStanceVal = finalStanceSlider.value;
+        const finalConfVal = finalConfSlider.value;
+        const finalThought = `我的最終裁決是：【${stanceMap[finalStanceVal]}】(分數：${finalStanceVal})，信心程度：${finalConfVal}%。`;
         
-        // 2. 隱藏最終遮罩
+        // 1. 隱藏最終遮罩
         document.getElementById('final-stance-overlay').style.display = 'none';
         
-        // 3. 記錄到 chatLog
-        chatLog.push({ role: 'Student_Final_Stance', content: finalThought });
+        // 2. 記錄到 chatLog
+        chatLog.push({ role: 'Student_Final_Stance', content: finalThought, stance: finalStanceVal, confidence: finalConfVal });
         
-        // 4. 準備文字檔內容並觸發下載
-        const content = chatLog.map(m => `[${m.role}]\n${m.content}`).join('\n\n---\n\n');
-        const blob = new Blob([content], { type: 'text/plain' });
+        // 3. 準備文字檔內容並觸發下載
+        // 🌟 直接使用全域變數 currentRound 來記錄輪數
+        const headerInfo = `【實驗紀錄摘要】\n總對談輪數：${currentRound} 輪\n==============================\n\n`;
+        const chatContent = chatLog.map(m => `[${m.role}]\n${m.content}`).join('\n\n---\n\n');
+        const finalContent = headerInfo + chatContent;
+        
+        const blob = new Blob([finalContent], { type: 'text/plain' });
         
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `Log_${group}_${new Date().getTime()}.txt`;
-        document.body.appendChild(a); // 把 a 標籤加到畫面上 (防止某些瀏覽器阻擋下載)
+        document.body.appendChild(a); 
         a.click();
-        document.body.removeChild(a); // 點擊完移除
+        document.body.removeChild(a); 
         
-        // 5. 延遲 1.5 秒後跳轉到問卷表單
+        // 4. 延遲 1.5 秒後跳轉到問卷表單
         setTimeout(() => {
             window.location.href = "https://forms.gle/XotheQyR3Y18JCJW8"; 
         }, 1500);
     };
-});
+}
