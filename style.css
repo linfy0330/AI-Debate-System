@@ -56,6 +56,11 @@ header { background: #2c3e50; color: white; padding: 1rem; text-align: center; }
 button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; }
 #send-btn { background: #2196f3; color: white; }
 #download-btn { background: #ff9800; color: white; }
+#download-btn:disabled {
+    background: #e0e0e0;
+    color: #999;
+    cursor: not-allowed;
+}
 /* 標題下方的裝飾色塊 */
 #group-indicator {
     height: 4px;             /* 設定色塊的高度 */
@@ -134,3 +139,94 @@ button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; 
 .stance-btn[data-stance="ban"]:hover { border-color: #d32f2f; background: #ffebee; }
 .stance-btn[data-stance="conditional"]:hover { border-color: #fbc02d; background: #fffde7; }
 .stance-btn[data-stance="free"]:hover { border-color: #388e3c; background: #e8f5e9; }
+
+/* --- 雙維度量表樣式 --- */
+.slider-group {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+    text-align: left;
+}
+
+.slider-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.label-left { text-align: left; width: 33%; }
+.label-center { text-align: center; width: 33%; }
+.label-right { text-align: right; width: 33%; }
+
+/* 滑桿本體優化 */
+input[type="range"] {
+    width: 100%;
+    margin: 10px 0;
+    accent-color: #3498db; /* 主要顏色 */
+    cursor: pointer;
+}
+
+.current-value {
+    text-align: center;
+    font-size: 0.95rem;
+    margin-top: 10px;
+    color: #555;
+}
+
+.highlight-text {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+/* 確認按鈕 */
+.submit-stance-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.submit-stance-btn:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+}
+
+/* --- 關閉按鈕樣式 (X) --- */
+.overlay-content {
+    position: relative; /* 確保 X 可以對齊這個白底視窗的右上角 */
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+    color: #d32f2f; /* 滑鼠移過去變紅色 */
+}
