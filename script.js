@@ -319,9 +319,5 @@ if (submitFinalBtn) {
         a.click();
         document.body.removeChild(a); 
         
-        // 4. 延遲 1.5 秒後跳轉到問卷表單
-        setTimeout(() => {
-            window.location.href = "https://forms.gle/XotheQyR3Y18JCJW8"; 
-        }, 1500);
     };
 }
